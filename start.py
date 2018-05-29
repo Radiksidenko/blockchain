@@ -28,6 +28,8 @@ class Blockchain:
         else:
             raise ValueError('Invalid URL')
 
+#################################################################################
+
     def valid_chain(self, chain):
         # проверка блока на правильность построения
 
@@ -37,11 +39,11 @@ class Blockchain:
         while current_index < len(chain):
             block = chain[current_index]
 
-            print("¢¢¢¢¢¢¢¢¢¢¢¢")
-            print(f'{last_block}')
-            print(f'{block}')
-            print("\n-----------\n")
-            print("¢¢¢¢¢¢¢¢¢¢¢¢")
+            # print("¢¢¢¢¢¢¢¢¢¢¢¢")
+            # print(f'{last_block}')
+            # print(f'{block}')
+            # print("\n-----------\n")
+            # print("¢¢¢¢¢¢¢¢¢¢¢¢")
 
             # проверка hash
             last_block_hash = self.hash(last_block)
@@ -57,6 +59,8 @@ class Blockchain:
 
         return True
 
+#################################################################################
+
     def resolve_conflicts(self):
         # консенсус просто заменяет без разбора самую длинную ветку
 
@@ -69,7 +73,7 @@ class Blockchain:
 
         for node in neighbours:
             response = requests.get(f'http://{node}/chain')
-
+            print(node)
             if response.status_code == 200:
                 length = response.json()['length']
                 chain = response.json()['chain']
@@ -83,6 +87,8 @@ class Blockchain:
             return True
 
         return False
+
+#################################################################################
 
     def new_block(self, proof, previous_hash):
 
@@ -99,6 +105,8 @@ class Blockchain:
         self.chain.append(block)
         return block
 
+#################################################################################
+
     def new_transaction(self, data):
 
         self.current_transactions.append({
@@ -106,15 +114,21 @@ class Blockchain:
         })
         return self.last_block['index'] + 1
 
+#################################################################################
+
     @property
     def last_block(self):
         return self.chain[-1]
+
+#################################################################################
 
     @staticmethod
     def hash(block):
 
         block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
+
+#################################################################################
 
     def proof_of_work(self, last_block):
 
@@ -128,6 +142,8 @@ class Blockchain:
 
         return proof
 
+#################################################################################
+
     @staticmethod
     def valid_proof(last_proof, proof, last_hash):
 
@@ -135,13 +151,13 @@ class Blockchain:
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
 
+#################################################################################
 
 app = Flask(__name__)
-
 node_identifier = str(uuid4()).replace('-', '')
-
 blockchain = Blockchain()
 
+#################################################################################
 
 @app.route('/mine', methods=['GET'])
 def mine():
@@ -159,8 +175,15 @@ def mine():
         'proof': block['proof'],
         'previous_hash': block['previous_hash'],
     }
+    # for node in blockchain.nodes:
+    #     print("mine:", node,"\n")
+        # print(requests.get(f'http://{node}/nodes/resolve'))
+
+    # requests.get('http://127.0.0.1:1337/test')
+
     return jsonify(response), 200
 
+#################################################################################
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
@@ -171,7 +194,11 @@ def new_transaction():
 
     # Check that the required fields are in the POST'ed data
     required = ['data']
-    # requests.post('http://127.0.0.1:5000/test', data=['data'])
+
+    for node in blockchain.nodes:
+        print(node)
+        requests.post(f'http://{node}/transactions_for_node', json=values)
+
     if not all(k in values for k in required):
         return 'Missing values', 400
 
@@ -181,24 +208,23 @@ def new_transaction():
     response = {'message': f'Transaction will be added to Block {index}'}
     return jsonify(response), 201\
 
+#################################################################################
 
-@app.route('/test', methods=['POST'])
-def test():
-    print("@@@@@@@@@@@@")
-    print(request)
-    print("@@@@@@@@@@@@")
+@app.route('/transactions_for_node', methods=['POST'])
+def node_transaction():
 
-    # values = request.get_json()
-    #
-    #
-    # index = values['test']
-    #
-    # response = {'test': index}
-    # print("@@@@@@@@@@@@")
-    # print(index)
-    # print("@@@@@@@@@@@@")
-    # return jsonify(response), 201
-###################################
+    values = request.get_json()
+    required = ['data']
+
+    if not all(k in values for k in required):
+        return 'Missing values', 400
+
+    index = blockchain.new_transaction(values['data'])
+
+    response = {'message': f'Transaction will be added to Block {index}'}
+    return jsonify(response), 201\
+
+#################################################################################
 
 @app.route('/chain', methods=['GET'])
 def full_chain():
@@ -211,6 +237,8 @@ def full_chain():
     print("test",blockchain.nodes)
     print("//////////////////")
     return jsonify(response), 200
+
+#################################################################################
 
 @app.route('/nodes/register', methods=['POST'])
 def register_nodes():
@@ -229,8 +257,11 @@ def register_nodes():
     }
     return jsonify(response), 201
 
+#################################################################################
+
 @app.route('/nodes/resolve', methods=['GET'])
 def consensus():
+    print("deg","|||||||||||||")
     replaced = blockchain.resolve_conflicts()
 
     if replaced:
@@ -246,6 +277,14 @@ def consensus():
 
     return jsonify(response), 200
 
+@app.route('/test', methods=['GET'])
+def test():
+    blockchain.resolve_conflicts()
+    print("∑∑∑∑∑∑")
+
+    return 'test', 201
+
+#################################################################################
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -256,6 +295,7 @@ if __name__ == '__main__':
     port = args.port
 
     app.run(host='0.0.0.0', port=port)
+
 
 #python start.py --port=1337
 
