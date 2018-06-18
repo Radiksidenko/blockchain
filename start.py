@@ -5,6 +5,9 @@ from urllib.parse import urlparse
 from uuid import uuid4
 import requests
 from flask import Flask, jsonify, request
+import pickle
+
+
 
 
 class Blockchain:
@@ -155,8 +158,30 @@ class Blockchain:
 
 app = Flask(__name__)
 node_identifier = str(uuid4()).replace('-', '')
-blockchain = Blockchain()
+# blockchain = Blockchain()
 
+
+# test = Blockchain()
+# print(test)
+# fileObject = open(r"/Users/radomyrsidenko/Desktop/les/python/blockchain/Blockchain","w")
+# fileObject.write(pickle.dump(test))
+#
+# # pickle.dump(test, fileObject)
+# fileObject.close()
+
+
+# example_dict = Blockchain()
+#
+# pickle_out = open("/Users/radomyrsidenko/Desktop/les/python/blockchain/Blockchain","wb")
+# pickle.dump(example_dict, pickle_out)
+# pickle_out.close()
+
+
+
+pickle_in = open("/Users/radomyrsidenko/Desktop/les/python/blockchain/Blockchain","rb")
+blockchain = pickle.load(pickle_in)
+
+# print(example_dict)
 #################################################################################
 
 @app.route('/mine', methods=['GET'])
@@ -180,6 +205,10 @@ def mine():
         # print(requests.get(f'http://{node}/nodes/resolve'))
 
     # requests.get('http://127.0.0.1:1337/test')
+
+    pickle_out = open("/Users/radomyrsidenko/Desktop/les/python/blockchain/Blockchain", "wb")
+    pickle.dump(blockchain, pickle_out)
+    pickle_out.close()
 
     return jsonify(response), 200
 
