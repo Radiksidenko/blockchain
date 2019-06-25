@@ -1,37 +1,35 @@
+# -*- coding: utf-8 -*-
 import hashlib
 import json
 from time import time
-from urllib.parse import urlparse
+from urlparse import urlparse
 from uuid import uuid4
 import requests
 from flask import Flask, jsonify, request
 import pickle
 
 
-
-
 class Blockchain:
 
     def __init__(self):
-        self.current_transactions = [] #транзакции
-        self.chain = []  #блоки
-        self.nodes = set() #узлы
+        self.current_transactions = []  # транзакции
+        self.chain = []  # блоки
+        self.nodes = set()  # узлы
 
         # создаем родетельский блок
-        self.new_block(previous_hash='0', proof=100)
+        self.new_block(previous_hash='0')
 
     # регистрация узлов
     def register_node(self, address):
         parsed_url = urlparse(address)
 
         if parsed_url.netloc:
-            self.nodes.add(parsed_url.netloc) #http://127.0.0.1:5000
+            self.nodes.add(parsed_url.netloc)  # http://127.0.0.1:5000
         elif parsed_url.path:
-            self.nodes.add(parsed_url.path) # 127.0.0.1:5000
-        else:
+            self.nodes.add(parsed_url.path)  # 127.0.0.1:5000
             raise ValueError('Invalid URL')
 
-#################################################################################
+    #################################################################################
 
     def valid_chain(self, chain):
         # проверка блока на правильность построения
@@ -42,19 +40,9 @@ class Blockchain:
         while current_index < len(chain):
             block = chain[current_index]
 
-            # print("¢¢¢¢¢¢¢¢¢¢¢¢")
-            # print(f'{last_block}')
-            # print(f'{block}')
-            # print("\n-----------\n")
-            # print("¢¢¢¢¢¢¢¢¢¢¢¢")
-
             # проверка hash
             last_block_hash = self.hash(last_block)
             if block['previous_hash'] != last_block_hash:
-                return False
-
-            # проверка PoW
-            if not self.valid_proof(last_block['proof'], block['proof'], last_block_hash):
                 return False
 
             last_block = block
@@ -62,20 +50,18 @@ class Blockchain:
 
         return True
 
-#################################################################################
+    #################################################################################
 
     def resolve_conflicts(self):
-        # консенсус просто заменяет без разбора самую длинную ветку
+        # получить цепочку просто заменяет без разбора самую длинную ветку
 
         neighbours = self.nodes
         new_chain = None
 
-
         max_length = len(self.chain)
 
-
         for node in neighbours:
-            response = requests.get(f'http://{node}/chain')
+            response = requests.get('http://{node}/chain')
             print(node)
             if response.status_code == 200:
                 length = response.json()['length']
@@ -91,15 +77,15 @@ class Blockchain:
 
         return False
 
-#################################################################################
+    #################################################################################
 
-    def new_block(self, proof, previous_hash):
+    def new_block(self, previous_hash):
 
         block = {
             'index': len(self.chain) + 1,
             'timestamp': time(),
             'transactions': self.current_transactions,
-            'proof': proof,
+            'validator': "validator",
             'previous_hash': previous_hash or self.hash(self.chain[-1])
         }
 
@@ -108,7 +94,7 @@ class Blockchain:
         self.chain.append(block)
         return block
 
-#################################################################################
+    #################################################################################
 
     def new_transaction(self, data):
 
@@ -117,13 +103,13 @@ class Blockchain:
         })
         return self.last_block['index'] + 1
 
-#################################################################################
+    #################################################################################
 
     @property
     def last_block(self):
         return self.chain[-1]
 
-#################################################################################
+    #################################################################################
 
     @staticmethod
     def hash(block):
@@ -131,117 +117,70 @@ class Blockchain:
         block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
 
-#################################################################################
+    #################################################################################
 
-    def proof_of_work(self, last_block):
-
-
-        last_proof = last_block['proof']
-        last_hash = self.hash(last_block)
-
-        proof = 0
-        while self.valid_proof(last_proof, proof, last_hash) is False:
-            proof += 1
-
-        return proof
-
-#################################################################################
-
-    @staticmethod
-    def valid_proof(last_proof, proof, last_hash):
-
-        guess = f'{last_proof}{proof}{last_hash}'.encode()
-        guess_hash = hashlib.sha256(guess).hexdigest()
-        return guess_hash[:4] == "0000"
-
-#################################################################################
 
 app = Flask(__name__)
 node_identifier = str(uuid4()).replace('-', '')
-# blockchain = Blockchain()
+routToFile = "/Users/radomyrsidenko/Desktop/универ/Диплом/git/test/Blockchain"
+blockchain = Blockchain()
 
-
-# test = Blockchain()
-# print(test)
-# fileObject = open(r"/Users/radomyrsidenko/Desktop/les/python/blockchain/Blockchain","w")
-# fileObject.write(pickle.dump(test))
-#
-# # pickle.dump(test, fileObject)
-# fileObject.close()
-
-
-# example_dict = Blockchain()
-#
-# pickle_out = open("/Users/radomyrsidenko/Desktop/les/python/blockchain/Blockchain","wb")
-# pickle.dump(example_dict, pickle_out)
+# pickle_out = open("/Users/radomyrsidenko/Desktop/универ/Диплом/git/test/Blockchain","wb")
+# pickle.dump(blockchain, pickle_out)
 # pickle_out.close()
 
-
-
-pickle_in = open("/Users/radomyrsidenko/Desktop/les/python/blockchain/Blockchain","rb")
+pickle_in = open(routToFile, "rb")
 blockchain = pickle.load(pickle_in)
 
-# print(example_dict)
+
 #################################################################################
 
 @app.route('/mine', methods=['GET'])
 def mine():
     last_block = blockchain.last_block
-    proof = blockchain.proof_of_work(last_block)
-
 
     previous_hash = blockchain.hash(last_block)
-    block = blockchain.new_block(proof, previous_hash)
-
+    block = blockchain.new_block(previous_hash)
     response = {
         'message': "New Block Forged",
         'index': block['index'],
         'transactions': block['transactions'],
-        'proof': block['proof'],
+        'validator': block['validator'],
         'previous_hash': block['previous_hash'],
     }
-    # for node in blockchain.nodes:
-    #     print("mine:", node,"\n")
-        # print(requests.get(f'http://{node}/nodes/resolve'))
 
-    # requests.get('http://127.0.0.1:1337/test')
-
-    pickle_out = open("/Users/radomyrsidenko/Desktop/les/python/blockchain/Blockchain", "wb")
+    pickle_out = open(routToFile, "wb")
     pickle.dump(blockchain, pickle_out)
     pickle_out.close()
 
     return jsonify(response), 200
 
+
 #################################################################################
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
-
-
-
     values = request.get_json()
 
-    # Check that the required fields are in the POST'ed data
     required = ['data']
 
     for node in blockchain.nodes:
-        print(node)
-        requests.post(f'http://{node}/transactions_for_node', json=values)
+        tmp = 'http://' + node + '/transactions_for_node'
+        requests.post(tmp, json=values)
 
     if not all(k in values for k in required):
         return 'Missing values', 400
 
-    # Create a new Transaction
     index = blockchain.new_transaction(values['data'])
 
-    response = {'message': f'Transaction will be added to Block {index}'}
-    return jsonify(response), 201\
+    response = {'message': 'Transaction will be added to Block', 'index': index}
+    return jsonify(response), 201
+
 
 #################################################################################
 
 @app.route('/transactions_for_node', methods=['POST'])
 def node_transaction():
-
     values = request.get_json()
     required = ['data']
 
@@ -250,8 +189,9 @@ def node_transaction():
 
     index = blockchain.new_transaction(values['data'])
 
-    response = {'message': f'Transaction will be added to Block {index}'}
-    return jsonify(response), 201\
+    response = {'message': 'Transaction will be added to Block', 'index': index}
+    return jsonify(response), 201
+
 
 #################################################################################
 
@@ -262,10 +202,8 @@ def full_chain():
         'length': len(blockchain.chain),
         'transactions': blockchain.current_transactions,
     }
-    print("//////////////////")
-    print("test",blockchain.nodes)
-    print("//////////////////")
     return jsonify(response), 200
+
 
 #################################################################################
 
@@ -286,11 +224,11 @@ def register_nodes():
     }
     return jsonify(response), 201
 
+
 #################################################################################
 
 @app.route('/nodes/resolve', methods=['GET'])
 def consensus():
-    print("deg","|||||||||||||")
     replaced = blockchain.resolve_conflicts()
 
     if replaced:
@@ -306,12 +244,17 @@ def consensus():
 
     return jsonify(response), 200
 
+
+#################################################################################
+
+
 @app.route('/test', methods=['GET'])
 def test():
     blockchain.resolve_conflicts()
     print("∑∑∑∑∑∑")
 
     return 'test', 201
+
 
 #################################################################################
 
@@ -325,6 +268,4 @@ if __name__ == '__main__':
 
     app.run(host='0.0.0.0', port=port)
 
-
-#python start.py --port=1337
-
+# python r.py --port=1337
